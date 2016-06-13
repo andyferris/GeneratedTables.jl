@@ -3,7 +3,7 @@ module GeneratedTables
 using GeneratedTypes
 
 export Cell, Column, Row, Table
-export name
+export name, eltypes
 
 include("cell.jl")
 include("column.jl")

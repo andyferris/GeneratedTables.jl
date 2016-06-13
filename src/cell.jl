@@ -1,4 +1,14 @@
 @Generated immutable Cell{Name, T}
+    if !isa(Name, Symbol)
+        str = "Cell parameter 1 (Name) is expected to be a symbol, got $Name"
+        return :(error(str))
+    end
+
+    if !isa(T, DataType)
+        str = "Cell parameter 2 (T) is expected to be a DataType, got $T"
+        return :(error(str))
+    end
+
     :(Name::T)
 end
 
