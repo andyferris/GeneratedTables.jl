@@ -1,4 +1,4 @@
-@Generated immutable Column{Name, T}
+@Generated 1 immutable Column{Name, T}
     if !isa(Name, Symbol)
         str = "Column parameter 1 (Name) is expected to be a symbol, got $Name"
         return :(error(str))

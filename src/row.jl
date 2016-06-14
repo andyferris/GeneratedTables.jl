@@ -1,4 +1,4 @@
-@Generated immutable Row{Names, Types <: Tuple}
+@Generated 1:32 immutable Row{Names, Types <: Tuple}
     if !isa(Names, Tuple) || eltype(Names) != Symbol || length(Names) != length(unique(Names))
         str = "Row parameter 1 (Names) is expected to be a tuple of unique symbols, got $Names" # TODO: reinsert colons in symbols?
         error(str)
@@ -22,7 +22,10 @@ Base.call{Names,T <: Tuple}(::Type{Row{Names,T}}, data::T) = Row{Names,T}(data..
     end
 
     if length(Names) == length(data)
-        return :(Row{Names, $(Expr(:curly, :Tuple, data...))}(data...))
+        return quote
+            $(Expr(:meta,:inline))
+            Row{Names, $(Expr(:curly, :Tuple, data...))}(data...)
+        end
     elseif length(data) == 1 && data[1] <: Tuple && length(Names) == length(data[1].parameters)  # Constructed from a tuple (with correct length)
         return :(Row{Names, $(data[1])}(data[1]...))
     else

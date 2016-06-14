@@ -1,4 +1,4 @@
-@Generated immutable Table{Names, Types <: Tuple}
+@Generated 1:32 immutable Table{Names, Types <: Tuple}
     #println(Names)
     #println(Types)
     if !isa(Names, Tuple) || eltype(Names) != Symbol || length(Names) != length(unique(Names)) # Also rules out length-0
