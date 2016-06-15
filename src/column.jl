@@ -27,6 +27,9 @@ end
 @inline Base.eltype{Name, T}(::Type{Column{Name,T}}) = eltype(T)
 @inline Base.eltype{C <: Column}(::Type{C}) = eltype(super(C))
 
+@inline nrow(col::Column) = length(col.(1))
+@inline ncol(::Column) = 1
+
 # iterating
 Base.start(col::Column) = start(col.(1))
 Base.next(col::Column, state) = next(col.(1), state)

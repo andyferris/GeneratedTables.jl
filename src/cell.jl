@@ -23,4 +23,7 @@ end
 @inline Base.eltype{Name, T}(::Type{Cell{Name,T}}) = T
 @inline Base.eltype{C <: Cell}(::Type{C}) = eltype(super(C))
 
+@inline nrow(::Cell) = 1
+@inline ncol(::Cell) = 1
+
 @inline getindex(c::Cell) = c.(1)

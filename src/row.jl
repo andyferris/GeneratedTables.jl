@@ -42,6 +42,9 @@ end
 @inline eltypes{Names, Types <: Tuple}(::Type{Row{Names,Types}}) = Types
 @inline eltypes{R <: Row}(::Type{R}) = eltypes(super(R))
 
+@inline nrow(::Row) = 1
+@inline ncol{Names}(::Row{Names}) = length(Names)
+
 # reordering
 @generated function permutecols{Names1,Names2,Types}(r::Row{Names1,Types}, ::Type{Val{Names2}})
     if Names1 == Names2

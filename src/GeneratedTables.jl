@@ -12,5 +12,6 @@ include("column.jl")
 include("row.jl")
 include("table.jl")
 include("extra_constructors.jl")
+include("show.jl")
 
 end # module
