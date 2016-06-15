@@ -157,13 +157,71 @@ end
 end
 
 
-#=
-#Base.setindex!{Name}(col::Column{Name}, v, i::Integer) = setindex!(col.(1), v, i)
-#Base.setindex!{Name}(col::Column{Name}, cell::Cell{Name}, i::Integer) = setindex!(col.(1), cell.(1), i)
-#Base.setindex!{Name}(col::Column{Name}, cell::Cell, i::Integer) = error("Column with name $Name don't match cell with name $(name(cell))")
-Base.setindex!{Name}(col::Column{Name}, v, inds) = setindex!(col.(1), v, i)
-Base.setindex!{Name}(col::Column{Name}, col2::Column, inds::Integer) = error("Attempted scalar setindex! with a non-scalar value") # ambiguity
-Base.setindex!{Name}(col::Column{Name}, col2::Column{Name}, inds::Integer) = error("Attempted scalar setindex! with a non-scalar value") # ambiguity
-Base.setindex!{Name}(col::Column{Name}, col2::Column{Name}, inds)  = setindex!(col.(1), col2.(1), i)
-Base.setindex!{Name}(col::Column{Name}, col2::Column, inds) = error("Column with name $Name don't match column with name $(name(col2))")
-=#
+@generated function unsafe_getindex{Names}(t::Table{Names}, i::Integer)
+    exprs = [:(Base.unsafe_getindex(t.($c), i)) for c = 1:length(Names)]
+    return Expr(:call, Row{Names}, exprs...)
+end
+@generated function unsafe_getindex{Names}(t::Table{Names}, inds)
+    exprs = [:(unsafe_getindex(t.($c), inds)) for c = 1:length(Names)]
+    return Expr(:call, Table{Names}, exprs...)
+end
+
+@generated function unsafe_setindex!{Names1,Names2}(t::Table{Names1}, v::Row{Names2}, i::Integer)
+    if Names1 == Names2
+        exprs = [:(unsafe_setindex!(t.($c), v.$(c), i)) for c = 1:length(Names1)]
+        return Expr(:block, exprs...)
+    else
+        if length(Names1) != length(Names2)
+            str = "Cannot assign $(length(v.parameters)) columns to $(length(Names)) columns"
+        end
+
+        order = permutator(Names1, Names2)
+        exprs = [:(unsafe_setindex!(t.($(order[c])), v.$(c), i)) for c = 1:length(Names1)]
+        return Expr(:block, exprs...)
+    end
+end
+@generated function unsafe_setindex!{Names}(t::Table{Names}, v::Tuple, i)
+    if length(v.parameters) != length(Names)
+        str = "Cannot assign a $(length(v.parameters))-tuple to $(length(Names)) columns"
+    end
+    exprs = [:(unsafe_setindex!(t.($c), v.$(c), i)) for c = 1:length(Names)]
+    return Expr(:block, exprs...)
+end
+@generated function unsafe_setindex!{Names1,Names2}(t::Table{Names1}, v::Table{Names2}, inds)
+    if Names1 == Names2
+        exprs = [:(unsafe_setindex!(t.($c), v.$(c), inds)) for c = 1:length(Names1)]
+        return Expr(:block, exprs...)
+    else
+        if length(Names1) != length(Names2)
+            str = "Cannot assign $(length(v.parameters)) columns to $(length(Names)) columns"
+        end
+
+        order = permutator(Names1, Names2)
+        exprs = [:(unsafe_setindex!(t.($(order[c])), v.$(c), inds)) for c = 1:length(Names1)]
+        return Expr(:block, exprs...)
+    end
+end
+
+
+# Vertically concatenate rows and tables into tables
+@generated function Base.vcat{Names}(t1::Union{Row{Names}, Table{Names}})
+    exprs = [:(vcat(t1.($c))) for c = 1:length(Names)]
+    return Expr(:call, Table{Names}, exprs...)
+end
+
+@generated function Base.vcat{Names1, Names2}(t1::Union{Row{Names1}, Table{Names1}}, t2::Union{Row{Names2}, Table{Names2}})
+    if Names1 == Names2
+        exprs = [:(vcat(t1.($c), t2.($c))) for c = 1:length(Names1)]
+        return Expr(:call, Table{Names1}, exprs...)
+    else
+        if length(Names1) != length(Names2)
+            str = "Cannot match $(length(v.parameters)) columns to $(length(Names)) columns"
+        end
+
+        order = permutator(Names1, Names2)
+        exprs = [:(vcat(t1.($c), t2.($(order[c])))) for c = 1:length(Names1)]
+        return Expr(:call, Table{Names1}, exprs...)
+    end
+end
+
+Base.vcat{Names1, Names2}(t1::Union{Row{Names1}, Table{Names1}}, t2::Union{Row{Names2}, Table{Names2}}, ts::Union{Row, Table}...) = vcat(vcat(t1, t2), ts...)

@@ -12,5 +12,5 @@ The *GeneratedTypes.jl* package is used to make possible the definition of
 custom fields.
 
 This solves the overly verbose syntax issues associated with *TypedTables.jl*
-and simultaneously the speed issues of *DataFrames.jl* (when using a naive,
-row-by-row approach).
+and simultaneously the speed issues of *DataFrames.jl* (that is, when using a
+naive, row-by-row approach).

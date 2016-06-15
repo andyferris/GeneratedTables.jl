@@ -74,3 +74,13 @@ Base.push!{Name}(col::Column{Name}, cell::Cell) = error("Column with name $Name 
 Base.unshift!(col::Column, v) = unshift!(col.(1), v)
 Base.unshift!{Name}(col::Column{Name}, cell::Cell{Name}) = unshift!(col.(1), cell.(1))
 Base.unshift!{Name}(col::Column{Name}, cell::Cell) = error("Column with name $Name don't match cell with name $(name(cell))")
+
+# append!/prepend!
+
+# Concatenate cells and columns into colums
+Base.vcat{Name}(c1::Union{Cell{Name}, Column{Name}}) = Column{Name}(vcat(c1.(1)))
+Base.vcat{Name}(c1::Union{Cell{Name}, Column{Name}}, c2::Union{Cell{Name}, Column{Name}}) = Column{Name}(vcat(c1.(1),c2.(1)))
+Base.vcat{Name}(c1::Union{Cell{Name}, Column{Name}}, c2::Union{Cell{Name}, Column{Name}}, cs::Union{Cell{Name}, Column{Name}}...) = vcat(Column{Name}(vcat(c1.(1), c2.(1))), cs...)
+
+# Otherwise, names don't match...
+Base.vcat(x::Union{Cell,Column}...) = error("Column names $(ntuple(i->name(x[i]),length(x))) don't match")
