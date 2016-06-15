@@ -40,11 +40,12 @@ Base.call{Names,T <: Tuple}(::Type{Table{Names,T}}, data::T) = Table{Names,T}(da
 
 end
 
-@inline Base.names{Names}(::Table{Names}) = Names
-@inline Base.names{Names, Types}(::Type{Table{Names,Types}}) = Names
-@inline Base.names{T <: Table}(::Type{T}) = names(super(T))
-@inline eltypes{Names, Types}(::Table{Names,Types}) = Types
-@inline eltypes{Names, Types}(::Type{Table{Names,Types}}) = Types
+@inline colnames{Names}(::Table{Names}) = Names
+@inline colnames{Names, Types <: Tuple}(::Type{Table{Names,Types}}) = Names
+@inline colnames{Names}(::Type{Table{Names}}) = Names
+@inline colnames{T <: Table}(::Type{T}) = colnames(super(T))
+@inline eltypes{Names, Types <: Tuple}(::Table{Names,Types}) = Types
+@inline eltypes{Names, Types <: Tuple}(::Type{Table{Names,Types}}) = Types
 @inline eltypes{T <: Table}(::Type{T}) = eltypes(super(T))
 
 @inline nrow(t::Table) = length(t.(1))
@@ -225,3 +226,24 @@ end
 end
 
 Base.vcat{Names1, Names2}(t1::Union{Row{Names1}, Table{Names1}}, t2::Union{Row{Names2}, Table{Names2}}, ts::Union{Row, Table}...) = vcat(vcat(t1, t2), ts...)
+
+# Horizontally concatenate columns and tables into tables
+@generated Base.hcat{Name}(c::Column{Name}) = :(Table{$((Name,))}(c.(1)))
+Base.hcat(t::Table) = t
+
+@generated function Base.hcat(r1::Union{Column,Table}, r2::Union{Column,Table})
+    names1 = (r1 <: Column ? (colname(r1),) : colnames(r1))
+    names2 = (r2 <: Column ? (colname(r2),) : colnames(r2))
+
+    if length(intersect(names1, names2)) != 0
+        str = "Column names are not distinct. Got $names1 and $names2"
+        return :(error($str))
+    end
+
+    newnames = (names1..., names2...)
+    exprs = vcat([:(r1.($j)) for j = 1:length(names1)], [:(r2.($j)) for j = 1:length(names2)])
+
+    return Expr(:call, Table{newnames}, exprs...)
+end
+
+Base.hcat(t1::Union{Column,Table}, t2::Union{Column,Table}, ts::Union{Column,Table}...) = hcat(hcat(t1, t2), ts...)

@@ -34,11 +34,12 @@ Base.call{Names,T <: Tuple}(::Type{Row{Names,T}}, data::T) = Row{Names,T}(data..
 end
 
 
-@inline Base.names{Names}(::Row{Names}) = Names
-@inline Base.names{Names, Types}(::Type{Row{Names,Types}}) = Names
-@inline Base.names{R <: Row}(::Type{R}) = names(super(R))
-@inline eltypes{Names, Types}(::Row{Names,Types}) = Types
-@inline eltypes{Names, Types}(::Type{Row{Names,Types}}) = Types
+@inline colnames{Names}(::Row{Names}) = Names
+@inline colnames{Names, Types <: Tuple}(::Type{Row{Names,Types}}) = Names
+@inline colnames{Names}(::Type{Row{Names}}) = Names
+@inline colnames{R <: Row}(::Type{R}) = colnames(super(R))
+@inline eltypes{Names, Types <: Tuple}(::Row{Names,Types}) = Types
+@inline eltypes{Names, Types <: Tuple}(::Type{Row{Names,Types}}) = Types
 @inline eltypes{R <: Row}(::Type{R}) = eltypes(super(R))
 
 # reordering
@@ -62,3 +63,24 @@ end
     exprs = [:(r.($j)) for j = 1:length(Names)]
     return Expr(:tuple, exprs...)
 end
+
+# Horizontally concatenate cells and rows into rows
+@generated Base.hcat{Name}(c::Cell{Name}) = :(Row{$((Name,))}(c.(1)))
+Base.hcat(r::Row) = r
+
+@generated function Base.hcat(r1::Union{Cell,Row}, r2::Union{Cell,Row})
+    names1 = (r1 <: Cell ? (colname(r1),) : colnames(r1))
+    names2 = (r2 <: Cell ? (colname(r2),) : colnames(r2))
+
+    if length(intersect(names1, names2)) != 0
+        str = "Column names are not distinct. Got $names1 and $names2"
+        return :(error($str))
+    end
+
+    newnames = (names1..., names2...)
+    exprs = vcat([:(r1.($j)) for j = 1:length(names1)], [:(r2.($j)) for j = 1:length(names2)])
+
+    return Expr(:call, Row{newnames}, exprs...)
+end
+
+Base.hcat(r1::Union{Cell,Row}, r2::Union{Cell,Row}, rs::Union{Cell,Row}...) = hcat(hcat(r1, r2), rs...)

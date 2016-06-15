@@ -20,9 +20,9 @@ function Base.call{Name, T}(::Type{Column{Name}}, data::T)
     Column{Name,T}(data)
 end
 
-@inline name{Name}(::Column{Name}) = Name
-@inline name{Name, T}(::Type{Column{Name,T}}) = Name
-@inline name{C <: Column}(::Type{C}) = name(super(C))
+@inline colname{Name}(::Column{Name}) = Name
+@inline colname{Name, T}(::Type{Column{Name,T}}) = Name
+@inline colname{C <: Column}(::Type{C}) = colname(super(C))
 @inline Base.eltype{Name, T}(::Column{Name,T}) = eltype(T)
 @inline Base.eltype{Name, T}(::Type{Column{Name,T}}) = eltype(T)
 @inline Base.eltype{C <: Column}(::Type{C}) = eltype(super(C))
