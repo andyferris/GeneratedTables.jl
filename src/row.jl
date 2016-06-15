@@ -45,6 +45,14 @@ end
 @inline nrow(::Row) = 1
 @inline ncol{Names}(::Row{Names}) = length(Names)
 
+Base.start(r::Row) = false
+Base.next(r::Row, state) = (r, true)
+Base.done(r::Row, state) = state
+
+getindex(r::Row) = r
+getindex(r::Row, i) = i == 1 ? r : error("Cannot index Row at $i")
+
+
 # reordering
 @generated function permutecols{Names1,Names2,Types}(r::Row{Names1,Types}, ::Type{Val{Names2}})
     if Names1 == Names2
@@ -62,10 +70,12 @@ end
     end
 end
 
-@generated function getindex{Names}(r::Row{Names})
-    exprs = [:(r.($j)) for j = 1:length(Names)]
-    return Expr(:tuple, exprs...)
-end
+
+#getindex(r::Row) = r
+#@generated function getindex{Names}(r::Row{Names})
+#    exprs = [:(r.($j)) for j = 1:length(Names)]
+#    return Expr(:tuple, exprs...)
+#end
 
 # Horizontally concatenate cells and rows into rows
 @generated Base.hcat{Name}(c::Cell{Name}) = :(Row{$((Name,))}(c.(1)))
@@ -87,3 +97,9 @@ Base.hcat(r::Row) = r
 end
 
 Base.hcat(r1::Union{Cell,Row}, r2::Union{Cell,Row}, rs::Union{Cell,Row}...) = hcat(hcat(r1, r2), rs...)
+
+# copy
+@generated function Base.copy{Names}(r::Row{Names})
+    exprs = [:(copy(r.($j))) for j = 1:length(Names)]
+    return Expr(:call, Row{Names}, exprs...)
+end

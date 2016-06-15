@@ -128,6 +128,7 @@ end
     else
         if length(Names1) != length(Names2)
             str = "Cannot assign $(length(v.parameters)) columns to $(length(Names)) columns"
+            return :(error($str))
         end
 
         order = permutator(Names1, Names2)
@@ -138,6 +139,7 @@ end
 @generated function setindex!{Names}(t::Table{Names}, v::Tuple, i)
     if length(v.parameters) != length(Names)
         str = "Cannot assign a $(length(v.parameters))-tuple to $(length(Names)) columns"
+        return :(error($str))
     end
     exprs = [:(setindex!(t.($c), v.$(c), i)) for c = 1:length(Names)]
     return Expr(:block, exprs...)
@@ -149,6 +151,7 @@ end
     else
         if length(Names1) != length(Names2)
             str = "Cannot assign $(length(v.parameters)) columns to $(length(Names)) columns"
+            return :(error($str))
         end
 
         order = permutator(Names1, Names2)
@@ -174,6 +177,7 @@ end
     else
         if length(Names1) != length(Names2)
             str = "Cannot assign $(length(v.parameters)) columns to $(length(Names)) columns"
+            return :(error($str))
         end
 
         order = permutator(Names1, Names2)
@@ -184,6 +188,7 @@ end
 @generated function unsafe_setindex!{Names}(t::Table{Names}, v::Tuple, i)
     if length(v.parameters) != length(Names)
         str = "Cannot assign a $(length(v.parameters))-tuple to $(length(Names)) columns"
+        return :(error($str))
     end
     exprs = [:(unsafe_setindex!(t.($c), v.$(c), i)) for c = 1:length(Names)]
     return Expr(:block, exprs...)
@@ -195,12 +200,127 @@ end
     else
         if length(Names1) != length(Names2)
             str = "Cannot assign $(length(v.parameters)) columns to $(length(Names)) columns"
+            return :(error($str))
         end
 
         order = permutator(Names1, Names2)
         exprs = [:(unsafe_setindex!(t.($(order[c])), v.$(c), inds)) for c = 1:length(Names1)]
         return Expr(:block, exprs...)
     end
+end
+
+
+# push, pop, etc
+@generated function Base.pop!{Names}(t::Table{Names})
+    exprs = [:(pop!(t.($c))) for c = 1:length(Names)]
+    return Expr(:call, Row{Names}, exprs...)
+end
+
+@generated function Base.shift!{Names}(t::Table{Names})
+    exprs = [:(shift!(t.($c))) for c = 1:length(Names)]
+    return Expr(:call, Row{Names}, exprs...)
+end
+
+@generated function Base.push!{Names}(t::Table{Names}, v::Tuple)
+    if length(Names) != length(v.parameters)
+        str = "Cannot assign a $(length(v.parameters))-tuple to $(length(Names)) columns"
+        return :(error($str))
+    end
+    exprs = [:(push!(t.($c), v.($c))) for c = 1:length(Names)]
+    return Expr(:block, exprs..., :t)
+end
+@generated function Base.push!{Names1,Names2}(t::Table{Names1}, r::Row{Names2})
+    order = permutator(Names1, Names2)
+    exprs = [:(push!(t.($(order[c])), r.($c))) for c = 1:length(Names1)]
+    return Expr(:block, exprs..., :t)
+end
+
+@generated function Base.unshift!{Names}(t::Table{Names}, v::Tuple)
+    if length(Names) != length(v.parameters)
+        str = "Cannot assign a $(length(v.parameters))-tuple to $(length(Names)) columns"
+        return :(error($str))
+    end
+    exprs = [:(unshift!(t.($c), v.($c))) for c = 1:length(Names)]
+    return Expr(:block, exprs..., :t)
+end
+@generated function Base.unshift!{Names1,Names2}(t::Table{Names1}, r::Row{Names2})
+    order = permutator(Names1, Names2)
+    exprs = [:(unshift!(t.($(order[c])), r.($c))) for c = 1:length(Names1)]
+    return Expr(:block, exprs..., :t)
+end
+
+@generated function Base.append!{Names}(t::Table{Names}, v::Tuple)
+    if length(Names) != length(v.parameters)
+        str = "Cannot assign a $(length(v.parameters))-tuple to $(length(Names)) columns"
+        return :(error($str))
+    end
+    exprs = [:(append!(t.($c), v.($c))) for c = 1:length(Names)]
+    return Expr(:block, exprs..., :t)
+end
+@generated function Base.append!{Names1,Names2}(t::Table{Names1}, t2::Table{Names2})
+    order = permutator(Names1, Names2)
+    exprs = [:(append!(t.($(order[c])), t2.($c))) for c = 1:length(Names1)]
+    return Expr(:block, exprs..., :t)
+end
+
+@generated function Base.prepend!{Names}(t::Table{Names}, v::Tuple)
+    if length(Names) != length(v.parameters)
+        str = "Cannot assign a $(length(v.parameters))-tuple to $(length(Names)) columns"
+        return :(error($str))
+    end
+    exprs = [:(prepend!(t.($c), v.($c))) for c = 1:length(Names)]
+    return Expr(:block, exprs..., :t)
+end
+@generated function Base.prepend!{Names1,Names2}(t::Table{Names1}, t2::Table{Names2})
+    order = permutator(Names1, Names2)
+    exprs = [:(prepend!(t.($(order[c])), t2.($c))) for c = 1:length(Names1)]
+    return Expr(:block, exprs..., :t)
+end
+
+@generated function Base.insert!{Names}(t::Table{Names}, i::Integer, v::Tuple)
+    if length(Names) != length(v.parameters)
+        str = "Cannot assign a $(length(v.parameters))-tuple to $(length(Names)) columns"
+        return :(error($str))
+    end
+    exprs = [:(insert!(t.($c), i, v.($c))) for c = 1:length(Names)]
+    return Expr(:block, exprs..., :t)
+end
+@generated function Base.insert!{Names1,Names2}(t::Table{Names1}, i::Integer, r::Row{Names2})
+    order = permutator(Names1, Names2)
+    exprs = [:(insert!(t.($(order[c])), i, r.($c))) for c = 1:length(Names1)]
+    return Expr(:block, exprs..., :t)
+end
+
+@generated function Base.deleteat!{Names}(t::Table{Names}, i)
+    exprs = [:(deleteat!(t.($c), i)) for c = 1:length(Names)]
+    return Expr(:block, exprs..., :t)
+end
+
+@generated function Base.splice!{Names}(t::Table{Names}, i::Integer)
+    exprs = [:(splice!(t.($c), i)) for c = 1:length(Names)]
+    return Expr(:call, Row{Names}, exprs...)
+end
+@generated function Base.splice!{Names}(t::Table{Names}, i::Integer, v::Tuple)
+    exprs = [:(splice!(t.($c), i, v.($c))) for c = 1:length(Names)]
+    return Expr(:call, Row{Names}, exprs...)
+end
+@generated function Base.splice!{Names1,Names2}(t::Table{Names1}, i::Integer, v::Union{Row{Names2},Table{Names2}})
+    order = permutator(Names2, Names1)
+    exprs = [:(splice!(t.($c), i, v.($(order[c])))) for c = 1:length(Names1)]
+    return Expr(:call, Row{Names1}, exprs...)
+end
+@generated function Base.splice!{Names}(t::Table{Names}, i)
+    exprs = [:(splice!(t.($c), i)) for c = 1:length(Names)]
+    return Expr(:call, Table{Names}, exprs...)
+end
+@generated function Base.splice!{Names}(t::Table{Names}, i, v::Tuple)
+    exprs = [:(splice!(t.($c), i, v.($c))) for c = 1:length(Names)]
+    return Expr(:call, Table{Names}, exprs...)
+end
+@generated function Base.splice!{Names1,Names2}(t::Table{Names1}, i, v::Union{Row{Names2},Table{Names2}})
+    order = permutator(Names2, Names1)
+    exprs = [:(splice!(t.($c), i, v.($(order[c])))) for c = 1:length(Names1)]
+    return Expr(:call, Table{Names1}, exprs...)
 end
 
 
@@ -247,3 +367,9 @@ Base.hcat(t::Table) = t
 end
 
 Base.hcat(t1::Union{Column,Table}, t2::Union{Column,Table}, ts::Union{Column,Table}...) = hcat(hcat(t1, t2), ts...)
+
+# copy
+@generated function Base.copy{Names}(t::Table{Names})
+    exprs = [:(copy(t.($j))) for j = 1:length(Names)]
+    return Expr(:call, Table{Names}, exprs...)
+end

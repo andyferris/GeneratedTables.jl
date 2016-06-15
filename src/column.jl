@@ -67,18 +67,31 @@ Base.unsafe_setindex!{Name}(col::Column{Name}, v, inds) = Base.unsafe_setindex!(
 Base.unsafe_setindex!{Name}(col::Column{Name}, col2::Column{Name}, inds) = Base.unsafe_setindex!(col.(1), col2.(1), i)
 Base.unsafe_setindex!{Name}(col::Column{Name}, col2::Column, inds) = error("Column with name $Name don't match column with name $(name(col2))")
 
-# pushing, popping, etc
+# pushing, popping, etc !
 Base.pop!(col::Column) = pop!(col.(1))
 Base.shift!(col::Column) = pop!(col.(1))
 
-Base.push!(col::Column, v) = push!(col.(1), v)
-Base.push!{Name}(col::Column{Name}, cell::Cell{Name}) = push!(col.(1), cell.(1))
+Base.push!(col::Column, v) = (push!(col.(1), v); col)
+Base.push!{Name}(col::Column{Name}, cell::Cell{Name}) = (push!(col.(1), cell.(1)); col)
 Base.push!{Name}(col::Column{Name}, cell::Cell) = error("Column with name $Name don't match cell with name $(name(cell))")
-Base.unshift!(col::Column, v) = unshift!(col.(1), v)
-Base.unshift!{Name}(col::Column{Name}, cell::Cell{Name}) = unshift!(col.(1), cell.(1))
+Base.unshift!(col::Column, v) = (unshift!(col.(1), v); col)
+Base.unshift!{Name}(col::Column{Name}, cell::Cell{Name}) = (unshift!(col.(1), cell.(1)); col)
 Base.unshift!{Name}(col::Column{Name}, cell::Cell) = error("Column with name $Name don't match cell with name $(name(cell))")
+Base.append!(col::Column, v) = (append!(col.(1), v); col)
+Base.append!{Name}(col::Column{Name}, col2::Column{Name}) = (append!(col.(1), col2.(1)); col)
+Base.append!{Name}(col::Column{Name}, col2::Column) = error("Column with name $Name don't match cell with name $(name(cell))")
+Base.prepend!(col::Column, v) = (prepend!(col.(1), v); col)
+Base.prepend!{Name}(col::Column{Name}, col2::Column{Name}) = (prepend!(col.(1), col2.(1)); col)
+Base.prepend!{Name}(col::Column{Name}, col2::Column) = error("Column with name $Name don't match cell with name $(name(cell))")
 
-# append!/prepend!
+Base.insert!(col::Column, i::Integer, v) = (insert!(col.(1), i, v); col)
+Base.insert!{Name}(col::Column{Name}, i::Integer, cell::Cell{Name}) = (insert!(col.(1), i, cell.(1)); col)
+Base.insert!{Name}(col::Column{Name}, i::Integer, cell::Cell) = error("Column with name $Name don't match cell with name $(name(cell))")
+Base.deleteat!(col::Column, i) = (deleteat!(col.(1), i), col)
+Base.splice!{Name}(col::Column{Name}, i::Integer) = splice!(col.(1), i)
+Base.splice!{Name}(col::Column{Name}, i::Integer, r) = splice!(col.(1), i, r)
+Base.splice!{Name}(col::Column{Name}, i) = Column{Name}(splice!(col.(1), i))
+Base.splice!{Name}(col::Column{Name}, i, r) = Column{Name}(splice!(col.(1), i, r))
 
 # Concatenate cells and columns into colums
 Base.vcat{Name}(c1::Union{Cell{Name}, Column{Name}}) = Column{Name}(vcat(c1.(1)))
@@ -87,3 +100,6 @@ Base.vcat{Name}(c1::Union{Cell{Name}, Column{Name}}, c2::Union{Cell{Name}, Colum
 
 # Otherwise, names don't match...
 Base.vcat(x::Union{Cell,Column}...) = error("Column names $(ntuple(i->name(x[i]),length(x))) don't match")
+
+# copy
+Base.copy{Name}(col::Column{Name}) = Column{Name}(copy(col.(1)))

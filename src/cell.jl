@@ -26,4 +26,14 @@ end
 @inline nrow(::Cell) = 1
 @inline ncol(::Cell) = 1
 
+Base.start(cell::Cell) = false
+Base.next(cell::Cell, state) = (cell.(1), true)
+Base.done(cell::Cell, state) = state
+Base.endof(cell::Cell) = 1
+Base.length(cell::Cell) = 1
+
 @inline getindex(c::Cell) = c.(1)
+@inline getindex(c::Cell, i) = i == 1 ? c.(1) : error("Cannot index Cell at $i")
+
+# copy
+Base.copy{Name}(cell::Cell{Name}) = Cell{Name}(copy(cell.(1)))
