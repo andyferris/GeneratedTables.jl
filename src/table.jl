@@ -26,7 +26,7 @@ Base.call{Names,T <: Tuple}(::Type{Table{Names,T}}, data::T) = Table{Names,T}(da
 
 @generated function Base.call{Names}(::Type{Table{Names}}, data...)
     if !isa(Names, Tuple) || eltype(Names) != Symbol || length(Names) != length(unique(Names))
-        str = "Row parameter 1 (Names) is expected to be a tuple of unique symbols, got $Names" # TODO: reinsert colons in symbols?
+        str = "Table parameter 1 (Names) is expected to be a tuple of unique symbols, got $Names" # TODO: reinsert colons in symbols?
         return :(error($str))
     end
 
@@ -50,18 +50,120 @@ end
 @inline nrow(t::Table) = length(t.(1))
 @inline ncol{Names}(::Table{Names}) = length(Names)
 
+# reordering
+@generated function permutecols{Names1,Names2}(t::Table{Names1}, ::Type{Val{Names2}})
+    if Names1 == Names2
+        return :(t)
+    else
+        if !(isa(Names2, Tuple)) || eltype(Names2) != Symbol || length(Names2) != length(Names1) || length(Names2) != length(unique(Names2))
+            str = "New column names $Names2 do not match existing names $Names1"
+            return :(error($str))
+        end
+
+        order = permutator(Names1, Names2)
+
+        exprs = [:(t.($(order[j]))) for j = 1:N]
+        return Expr(:call, Table{Names2}, exprs...)
+    end
+end
+
+function permutator{N}(names1::NTuple{N,Symbol}, names2::NTuple{N,Symbol})
+    order = zeros(Int, N)
+    for i = 1:N
+        isfound = false
+        for j = 1:N
+            if names1[i] == names2[j]
+                isfound = true
+                order[j] = i
+                break
+            end
+        end
+
+        if !isfound
+            str = "New column names $names2 do not match existing names $names1"
+            return :(error($str))
+        end
+    end
+
+    return order
+end
+
 # iterating
+
 # TODO don't assume all containers are compatible with each other... (e.g. different implementations of dictionaries).
 # Probably should define some kind of table key for this
 
-# TODO bad codegen. Probably *much* better to revert to direct integer indexing here.
-# TODO still bad codegen. Perhaps inference is having a problem with t.(1), etc
+# TODO very strong assumption about columns being of same length. Probably
+# should check in start? And hope the user doesn't change the column sizes
+# differently? Or do the safe thing and get the user to wrap it in @inbounds??
 
 Base.start(t::Table) = 1
 @generated function Base.next{Names}(t::Table{Names}, state)
     exprs = [:(Base.unsafe_getindex(t.($i),state)) for i = 1:length(Names)]
-
-    println(Expr(:tuple, Expr(:call, Row{Names}, exprs...), :(state + 1)))
     return Expr(:tuple, Expr(:call, Row{Names}, exprs...), :(state + 1))
 end
 Base.done(t::Table, state) = state > nrow(t)
+
+# indexing
+Base.endof(t::Table) = nrow(t)
+Base.length(t::Table) = nrow(t)
+Base.size(t::Table) = (nrow(t),)
+Base.size(t::Table, d) = size(t.(1), d)
+
+
+@generated function getindex{Names}(t::Table{Names}, i::Integer)
+    exprs = [:(Base.getindex(t.($c), i)) for c = 1:length(Names)]
+    return Expr(:call, Row{Names}, exprs...)
+end
+@generated function getindex{Names}(t::Table{Names}, inds)
+    exprs = [:(getindex(t.($c), inds)) for c = 1:length(Names)]
+    return Expr(:call, Table{Names}, exprs...)
+end
+
+@generated function setindex!{Names1,Names2}(t::Table{Names1}, v::Row{Names2}, i::Integer)
+    if Names1 == Names2
+        exprs = [:(setindex!(t.($c), v.$(c), i)) for c = 1:length(Names1)]
+        return Expr(:block, exprs...)
+    else
+        if length(Names1) != length(Names2)
+            str = "Cannot assign $(length(v.parameters)) columns to $(length(Names)) columns"
+        end
+
+        order = permutator(Names1, Names2)
+        exprs = [:(setindex!(t.($(order[c])), v.$(c), i)) for c = 1:length(Names1)]
+        return Expr(:block, exprs...)
+    end
+end
+@generated function setindex!{Names}(t::Table{Names}, v::Tuple, i)
+    if length(v.parameters) != length(Names)
+        str = "Cannot assign a $(length(v.parameters))-tuple to $(length(Names)) columns"
+    end
+    exprs = [:(setindex!(t.($c), v.$(c), i)) for c = 1:length(Names)]
+    return Expr(:block, exprs...)
+end
+@generated function setindex!{Names1,Names2}(t::Table{Names1}, v::Table{Names2}, inds)
+    if Names1 == Names2
+        exprs = [:(setindex!(t.($c), v.$(c), inds)) for c = 1:length(Names1)]
+        return Expr(:block, exprs...)
+    else
+        if length(Names1) != length(Names2)
+            str = "Cannot assign $(length(v.parameters)) columns to $(length(Names)) columns"
+        end
+
+        order = permutator(Names1, Names2)
+        exprs = [:(setindex!(t.($(order[c])), v.$(c), inds)) for c = 1:length(Names1)]
+        return Expr(:block, exprs...)
+    end
+end
+
+
+#=
+#Base.setindex!{Name}(col::Column{Name}, v, i::Integer) = setindex!(col.(1), v, i)
+#Base.setindex!{Name}(col::Column{Name}, cell::Cell{Name}, i::Integer) = setindex!(col.(1), cell.(1), i)
+#Base.setindex!{Name}(col::Column{Name}, cell::Cell, i::Integer) = error("Column with name $Name don't match cell with name $(name(cell))")
+Base.setindex!{Name}(col::Column{Name}, v, inds) = setindex!(col.(1), v, i)
+Base.setindex!{Name}(col::Column{Name}, col2::Column, inds::Integer) = error("Attempted scalar setindex! with a non-scalar value") # ambiguity
+Base.setindex!{Name}(col::Column{Name}, col2::Column{Name}, inds::Integer) = error("Attempted scalar setindex! with a non-scalar value") # ambiguity
+Base.setindex!{Name}(col::Column{Name}, col2::Column{Name}, inds)  = setindex!(col.(1), col2.(1), i)
+Base.setindex!{Name}(col::Column{Name}, col2::Column, inds) = error("Column with name $Name don't match column with name $(name(col2))")
+=#

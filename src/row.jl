@@ -40,3 +40,25 @@ end
 @inline eltypes{Names, Types}(::Row{Names,Types}) = Types
 @inline eltypes{Names, Types}(::Type{Row{Names,Types}}) = Types
 @inline eltypes{R <: Row}(::Type{R}) = eltypes(super(R))
+
+# reordering
+@generated function permutecols{Names1,Names2,Types}(r::Row{Names1,Types}, ::Type{Val{Names2}})
+    if Names1 == Names2
+        return :(r)
+    else
+        if !(isa(Names2, Tuple)) || eltype(Names2) != Symbol || length(Names2) != length(Names1) || length(Names2) != length(unique(Names2))
+            str = "New column names $Names2 do not match existing names $Names1"
+            return :(error($str))
+        end
+
+        order = permutator(Names1, Names2)
+
+        exprs = [:(r.($(order[j]))) for j = 1:N]
+        return Expr(:call, Row{Names1}, exprs...)
+    end
+end
+
+@generated function getindex{Names}(r::Row{Names})
+    exprs = [:(r.($j)) for j = 1:length(Names)]
+    return Expr(:tuple, exprs...)
+end
