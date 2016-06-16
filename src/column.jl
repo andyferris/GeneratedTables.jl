@@ -20,6 +20,9 @@ function Base.call{Name, T}(::Type{Column{Name}}, data::T)
     Column{Name,T}(data)
 end
 
+Base.call{Name, T, Tnew}(::Type{Column{Name,Tnew}}, col::Column{Name,T})    = Column{Name,Tnew}(convert(Tnew, col.(1)))
+Base.convert{Name, Name_new, T, T_new}(::Type{Column{Name_new,T_new}}, col::Column{Name,T}) = Column{Name_new,T_new}(convert(T_new, col.(1)))
+
 @inline colname{Name}(::Column{Name}) = Name
 @inline colname{Name, T}(::Type{Column{Name,T}}) = Name
 @inline colname{C <: Column}(::Type{C}) = colname(super(C))

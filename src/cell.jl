@@ -16,6 +16,10 @@ function Base.call{Name, T}(::Type{Cell{Name}}, data::T)
     Cell{Name,T}(data)
 end
 
+Base.call{Name, T, Tnew}(::Type{Cell{Name,Tnew}}, cell::Cell{Name,T})    = Cell{Name,Tnew}(convert(Tnew, cell.(1)))
+Base.convert{Name, Name_new, T, T_new}(::Type{Cell{Name_new,T_new}}, cell::Cell{Name,T}) = Cell{Name_new,T_new}(convert(T_new, cell.(1)))
+
+
 @inline colname{Name}(::Cell{Name}) = Name
 @inline colname{Name, T}(::Type{Cell{Name,T}}) = Name
 @inline colname{C <: Cell}(::Type{C}) = colname(super(C))

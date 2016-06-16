@@ -1,6 +1,4 @@
 @Generated 1:32 immutable Table{Names, Types <: Tuple}
-    #println(Names)
-    #println(Types)
     if !isa(Names, Tuple) || eltype(Names) != Symbol || length(Names) != length(unique(Names)) # Also rules out length-0
         str = "Table parameter 1 (Names) is expected to be a tuple of unique symbols, got $Names" # TODO: reinsert colons in symbols?
         error(str)
@@ -37,7 +35,20 @@ Base.call{Names,T <: Tuple}(::Type{Table{Names,T}}, data::T) = Table{Names,T}(da
     else
         return :(error("Can't construct Table with $(length(Names)) columns with input $data"))
     end
+end
 
+Base.call{Names, Types, Types_new}(::Type{Table{Names,Types_new}}, t::Table{Names,Types}) = convert(Table{Names,Types_new}, t)
+@generated function Base.convert{Names, Names_new, Types, Types_new <: Tuple}(::Type{Table{Names_new,Types_new}}, t::Table{Names,Types})
+    if !isa(Names_new, Tuple) || eltype(Names_new) != Symbol || length(Names_new) != length(Names) || length(Names_new) != length(unique(Names_new))
+        str = "Cannot convert $(length(Names)) columns to new names $(Names_new)."
+        return :(error($str))
+    end
+    if length(Types_new.parameters) != length(Types.parameters)
+        str = "Cannot convert $(length(Types.pareters)) columns to $(length(Types_new.parameters)) new types."
+        return :(error($str))
+    end
+    exprs = [:(convert(Types_new.parameters[$j], t.($j))) for j = 1:length(Names)]
+    return Expr(:call, Table{Names_new,Types_new}, exprs...)
 end
 
 @inline colnames{Names}(::Table{Names}) = Names
@@ -63,7 +74,7 @@ end
 
         order = permutator(Names1, Names2)
 
-        exprs = [:(t.($(order[j]))) for j = 1:N]
+        exprs = [:(t.($(order[j]))) for j = 1:length(Names1)]
         return Expr(:call, Table{Names2}, exprs...)
     end
 end

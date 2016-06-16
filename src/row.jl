@@ -33,6 +33,20 @@ Base.call{Names,T <: Tuple}(::Type{Row{Names,T}}, data::T) = Row{Names,T}(data..
     end
 end
 
+Base.call{Names, Types, Types_new}(::Type{Row{Names,Types_new}}, r::Row{Names,Types}) = convert(Row{Names,Types_new}, r)
+@generated function Base.convert{Names, Names_new, Types, Types_new <: Tuple}(::Type{Row{Names_new,Types_new}}, r::Row{Names,Types})
+    if !isa(Names_new, Tuple) || eltype(Names_new) != Symbol || length(Names_new) != length(Names) || length(Names_new) != length(unique(Names_new))
+        str = "Cannot convert $(length(Names)) columns to new names $(Names_new)."
+        return :(error($str))
+    end
+    if length(Types_new.parameters) != length(Types.parameters)
+        str = "Cannot convert $(length(Types.pareters)) columns to $(length(Types_new.parameters)) new types."
+        return :(error($str))
+    end
+    exprs = [:(convert(Types_new.parameters[$j], r.($j))) for j = 1:length(Names)]
+    return Expr(:call, Row{Names_new,Types_new}, exprs...)
+end
+
 
 @inline colnames{Names}(::Row{Names}) = Names
 @inline colnames{Names, Types <: Tuple}(::Type{Row{Names,Types}}) = Names
@@ -65,7 +79,7 @@ getindex(r::Row, i) = i == 1 ? r : error("Cannot index Row at $i")
 
         order = permutator(Names1, Names2)
 
-        exprs = [:(r.($(order[j]))) for j = 1:N]
+        exprs = [:(r.($(order[j]))) for j = 1:length(Names1)]
         return Expr(:call, Row{Names1}, exprs...)
     end
 end
